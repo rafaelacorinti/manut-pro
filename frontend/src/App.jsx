@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
+import Cadastro from './pages/Cadastro'
 import Dashboard from './pages/Dashboard'
 import Manutencoes from './pages/Manutencoes'
 import ManutencaoForm from './pages/ManutencaoForm'
@@ -27,6 +28,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/cadastro" element={<Cadastro />} />
           <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
             <Route index element={<Dashboard />} />
             <Route path="manutencoes" element={<Manutencoes />} />

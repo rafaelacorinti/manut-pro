@@ -1,24 +1,31 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import api from '../services/api'
 
-export default function Login() {
-  const [email, setEmail] = useState('admin@manutpro.com')
-  const [senha, setSenha] = useState('admin123')
+export default function Cadastro() {
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', confirmar: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value })
+
   const handleSubmit = async e => {
     e.preventDefault()
     setError('')
+    if (form.senha !== form.confirmar) return setError('As senhas não coincidem.')
+    if (form.senha.length < 6) return setError('A senha deve ter pelo menos 6 caracteres.')
     setLoading(true)
     try {
-      await login(email, senha)
+      const res = await api.post('/auth/register', { nome: form.nome, email: form.email, senha: form.senha })
+      localStorage.setItem('token', res.data.token)
+      localStorage.setItem('user', JSON.stringify(res.data.user))
       navigate('/')
+      window.location.reload()
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao fazer login.')
+      setError(err.response?.data?.error || 'Erro ao criar conta.')
     } finally {
       setLoading(false)
     }
@@ -34,7 +41,7 @@ export default function Login() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <h2 className="text-xl font-bold text-slate-800 mb-6">Entrar no sistema</h2>
+          <h2 className="text-xl font-bold text-slate-800 mb-6">Criar conta</h2>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">
               {error}
@@ -42,22 +49,29 @@ export default function Login() {
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
+              <label className="label">Nome completo</label>
+              <input type="text" name="nome" className="input" value={form.nome} onChange={handleChange} required placeholder="Seu nome" />
+            </div>
+            <div>
               <label className="label">E-mail</label>
-              <input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" />
+              <input type="email" name="email" className="input" value={form.email} onChange={handleChange} required placeholder="seu@email.com" />
             </div>
             <div>
               <label className="label">Senha</label>
-              <input type="password" className="input" value={senha} onChange={e => setSenha(e.target.value)} required placeholder="••••••••" />
+              <input type="password" name="senha" className="input" value={form.senha} onChange={handleChange} required placeholder="Mínimo 6 caracteres" />
+            </div>
+            <div>
+              <label className="label">Confirmar senha</label>
+              <input type="password" name="confirmar" className="input" value={form.confirmar} onChange={handleChange} required placeholder="Repita a senha" />
             </div>
             <button type="submit" className="btn-primary w-full justify-center py-3 text-base" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? 'Criando conta...' : 'Criar conta'}
             </button>
           </form>
           <p className="text-center text-sm text-slate-500 mt-6">
-            Não tem conta?{' '}
-            <Link to="/cadastro" className="text-primary-600 font-semibold hover:underline">Criar conta</Link>
+            Já tem conta?{' '}
+            <Link to="/login" className="text-primary-600 font-semibold hover:underline">Entrar</Link>
           </p>
-          <p className="text-center text-xs text-slate-400 mt-3">Manut-Pro v1.0 • Gestão de Manutenção</p>
         </div>
       </div>
     </div>

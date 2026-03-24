@@ -7,6 +7,33 @@ const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'manutpro_secret_2024_seguro';
 
+router.post('/register', async (req, res) => {
+  try {
+    const { nome, email, senha } = req.body;
+    if (!nome || !email || !senha) return res.status(400).json({ error: 'Nome, email e senha são obrigatórios.' });
+    if (senha.length < 6) return res.status(400).json({ error: 'A senha deve ter pelo menos 6 caracteres.' });
+
+    const existing = await get('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing) return res.status(400).json({ error: 'E-mail já cadastrado.' });
+
+    const hash = bcrypt.hashSync(senha, 10);
+    await run(
+      'INSERT INTO users (nome, email, senha, role, ativo) VALUES ($1, $2, $3, $4, $5)',
+      [nome, email, hash, 'tecnico', 1]
+    );
+
+    const user = await get('SELECT id, nome, email, role FROM users WHERE email = $1', [email]);
+    const token = jwt.sign(
+      { id: user.id, nome: user.nome, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+    res.status(201).json({ token, user: { id: user.id, nome: user.nome, email: user.email, role: user.role } });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.post('/login', async (req, res) => {
   try {
     const { email, senha } = req.body;
