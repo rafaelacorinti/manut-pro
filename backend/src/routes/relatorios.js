@@ -45,7 +45,7 @@ router.get('/pdf/:id', async (req, res) => {
       get('SELECT * FROM empresa LIMIT 1'),
     ]);
 
-    const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks = [];
     doc.on('data', chunk => chunks.push(chunk));
 
