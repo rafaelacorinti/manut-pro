@@ -40,14 +40,14 @@ export default function Login() {
               {error}
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
             <div>
               <label className="label">E-mail</label>
-              <input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" />
+              <input type="email" className="input" value={email} onChange={e => setEmail(e.target.value)} required placeholder="seu@email.com" autoComplete="off" />
             </div>
             <div>
               <label className="label">Senha</label>
-              <input type="password" className="input" value={senha} onChange={e => setSenha(e.target.value)} required placeholder="••••••••" />
+              <input type="password" className="input" value={senha} onChange={e => setSenha(e.target.value)} required placeholder="••••••••" autoComplete="new-password" />
             </div>
             <button type="submit" className="btn-primary w-full justify-center py-3 text-base" disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
