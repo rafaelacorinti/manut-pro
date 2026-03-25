@@ -33,15 +33,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-const logoStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../uploads/logo');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => cb(null, `logo${path.extname(file.originalname)}`)
-});
-const logoUpload = multer({ storage: logoStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+const logoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 app.use('/api/auth', authRoutes);
 app.use('/api/manutencoes', manutencoesRoutes);
@@ -72,8 +64,9 @@ app.put('/api/empresa', authMiddleware, async (req, res) => {
 app.post('/api/empresa/logo', authMiddleware, logoUpload.single('logo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Arquivo não enviado.' });
-    await run('UPDATE empresa SET logo_path = $1', [req.file.path]);
-    res.json({ url: `/uploads/logo/${req.file.filename}` });
+    const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+    await run('UPDATE empresa SET logo_base64 = $1', [base64]);
+    res.json({ url: base64 });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -58,8 +58,11 @@ router.get('/pdf/:id', async (req, res) => {
       const pageWidth = doc.page.width - 100;
 
       doc.rect(50, 40, pageWidth, 80).fill(azul);
-      if (empresa?.logo_path && fs.existsSync(empresa.logo_path)) {
-        try { doc.image(empresa.logo_path, 60, 48, { height: 64 }); } catch(e) {}
+      if (empresa?.logo_base64) {
+        try {
+          const logoBuffer = Buffer.from(empresa.logo_base64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+          doc.image(logoBuffer, 58, 48, { height: 64, fit: [80, 64] });
+        } catch(e) { console.error('Erro logo PDF:', e.message); }
       }
       doc.fillColor('white').fontSize(20).font('Helvetica-Bold').text(empresa?.nome || 'Minha Empresa', 130, 55, { align: 'center' });
       doc.fontSize(11).font('Helvetica').text('RELATÓRIO DE MANUTENÇÃO PREDIAL', 130, 80, { align: 'center' });

@@ -123,13 +123,15 @@ async function initDB() {
       endereco TEXT,
       telefone TEXT,
       email TEXT,
-      logo_path TEXT
+      logo_path TEXT,
+      logo_base64 TEXT
     );
   `);
 
   const admin = await get("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
   // Migração: adicionar colunas novas se não existirem
   await query(`ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS custo_mao_obra NUMERIC DEFAULT 0`).catch(() => {});
+  await query(`ALTER TABLE empresa ADD COLUMN IF NOT EXISTS logo_base64 TEXT`).catch(() => {});
   if (!admin) {
     const hash = bcrypt.hashSync('admin123', 10);
     await run('INSERT INTO users (nome, email, senha, role) VALUES ($1,$2,$3,$4)', ['Administrador', 'admin@manutpro.com', hash, 'admin']);
