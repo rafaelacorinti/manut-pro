@@ -30,15 +30,19 @@ export default function ManutencaoDetalhe() {
   }
 
   const downloadPDF = async () => {
-    const token = localStorage.getItem('token')
-    const res = await fetch(`/api/relatorios/pdf/${id}`, { headers: { Authorization: `Bearer ${token}` } })
-    const blob = await res.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `OS-${data.numero}.pdf`
-    a.click()
-    window.URL.revokeObjectURL(url)
+    try {
+      const res = await api.get(`/relatorios/pdf/${id}`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `OS-${data.numero}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Erro ao gerar PDF. Tente novamente.')
+    }
   }
 
   const handleSaveSignature = async () => {

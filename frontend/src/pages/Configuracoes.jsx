@@ -6,6 +6,7 @@ export default function Configuracoes() {
   const { user } = useAuth()
   const [empresa, setEmpresa] = useState({ nome: '', cnpj: '', endereco: '', telefone: '', email: '' })
   const [users, setUsers] = useState([])
+  const [pendentes, setPendentes] = useState([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [showUserModal, setShowUserModal] = useState(false)
@@ -17,7 +18,24 @@ export default function Configuracoes() {
   useEffect(() => {
     api.get('/empresa').then(r => setEmpresa(r.data || {}))
     api.get('/users').then(r => setUsers(r.data))
+    if (user?.role === 'admin') api.get('/users/pendentes').then(r => setPendentes(r.data))
   }, [])
+
+  const aprovarUser = async (id) => {
+    try {
+      await api.post(`/users/${id}/aprovar`)
+      setPendentes(p => p.filter(u => u.id !== id))
+      api.get('/users').then(r => setUsers(r.data))
+    } catch (e) { alert('Erro ao aprovar.') }
+  }
+
+  const rejeitarUser = async (id) => {
+    if (!confirm('Rejeitar e excluir este cadastro?')) return
+    try {
+      await api.post(`/users/${id}/rejeitar`)
+      setPendentes(p => p.filter(u => u.id !== id))
+    } catch (e) { alert('Erro ao rejeitar.') }
+  }
 
   const saveEmpresa = async () => {
     setSaving(true)
@@ -75,12 +93,45 @@ export default function Configuracoes() {
       </div>
 
       <div className="flex gap-2 border-b border-slate-200">
-        {['empresa', 'usuarios'].map(t => (
+        {['empresa', 'usuarios', ...(user?.role === 'admin' ? ['aprovacoes'] : [])].map(t => (
           <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 text-sm font-semibold border-b-2 -mb-px transition-colors ${tab === t ? 'border-primary-700 text-primary-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-            {t === 'empresa' ? 'Dados da Empresa' : 'Usuários'}
+            {t === 'empresa' ? 'Dados da Empresa' : t === 'usuarios' ? 'Usuários' : (
+              <span className="flex items-center gap-1">
+                Aprovações
+                {pendentes.length > 0 && <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{pendentes.length}</span>}
+              </span>
+            )}
           </button>
         ))}
       </div>
+
+      {tab === 'aprovacoes' && (
+        <div className="card p-6 space-y-4">
+          <h2 className="font-bold text-slate-700 border-b pb-2">Cadastros Pendentes de Aprovação</h2>
+          {pendentes.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <p className="text-4xl mb-2">✓</p>
+              <p>Nenhum cadastro pendente.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pendentes.map(u => (
+                <div key={u.id} className="flex items-center justify-between p-4 border border-slate-200 rounded-xl bg-slate-50">
+                  <div>
+                    <p className="font-semibold text-slate-800">{u.nome}</p>
+                    <p className="text-sm text-slate-500">{u.email}</p>
+                    <p className="text-xs text-slate-400">Solicitado em {new Date(u.created_at).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => aprovarUser(u.id)} className="bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Aprovar</button>
+                    <button onClick={() => rejeitarUser(u.id)} className="bg-red-100 hover:bg-red-200 text-red-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">Rejeitar</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {tab === 'empresa' && (
         <div className="card p-6 space-y-4">

@@ -6,6 +6,27 @@ const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
+router.get('/pendentes', adminMiddleware, async (req, res) => {
+  try {
+    const users = await all('SELECT id, nome, email, role, created_at FROM users WHERE ativo = 0 ORDER BY created_at DESC');
+    res.json(users);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/aprovar', adminMiddleware, async (req, res) => {
+  try {
+    await run('UPDATE users SET ativo = 1 WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Usuário aprovado com sucesso.' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post('/:id/rejeitar', adminMiddleware, async (req, res) => {
+  try {
+    await run('DELETE FROM users WHERE id = $1 AND ativo = 0', [req.params.id]);
+    res.json({ message: 'Cadastro rejeitado.' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.get('/', async (req, res) => {
   try {
     const users = await all('SELECT id, nome, email, role, ativo, created_at FROM users ORDER BY nome');

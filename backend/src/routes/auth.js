@@ -19,16 +19,10 @@ router.post('/register', async (req, res) => {
     const hash = bcrypt.hashSync(senha, 10);
     await run(
       'INSERT INTO users (nome, email, senha, role, ativo) VALUES ($1, $2, $3, $4, $5)',
-      [nome, email, hash, 'tecnico', 1]
+      [nome, email, hash, 'tecnico', 0]
     );
 
-    const user = await get('SELECT id, nome, email, role FROM users WHERE email = $1', [email]);
-    const token = jwt.sign(
-      { id: user.id, nome: user.nome, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '8h' }
-    );
-    res.status(201).json({ token, user: { id: user.id, nome: user.nome, email: user.email, role: user.role } });
+    res.status(201).json({ message: 'Cadastro realizado! Aguarde a aprovação do administrador para acessar o sistema.' });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -39,8 +33,9 @@ router.post('/login', async (req, res) => {
     const { email, senha } = req.body;
     if (!email || !senha) return res.status(400).json({ error: 'Email e senha obrigatórios.' });
 
-    const user = await get('SELECT * FROM users WHERE email = $1 AND ativo = 1', [email]);
+    const user = await get('SELECT * FROM users WHERE email = $1', [email]);
     if (!user) return res.status(401).json({ error: 'Credenciais inválidas.' });
+    if (!user.ativo) return res.status(403).json({ error: 'Cadastro aguardando aprovação do administrador.' });
 
     const valid = bcrypt.compareSync(senha, user.senha);
     if (!valid) return res.status(401).json({ error: 'Credenciais inválidas.' });

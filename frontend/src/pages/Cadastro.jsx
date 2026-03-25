@@ -1,14 +1,12 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { Link } from 'react-router-dom'
 import api from '../services/api'
 
 export default function Cadastro() {
   const [form, setForm] = useState({ nome: '', email: '', senha: '', confirmar: '' })
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { login } = useAuth()
-  const navigate = useNavigate()
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value })
 
@@ -19,16 +17,30 @@ export default function Cadastro() {
     if (form.senha.length < 6) return setError('A senha deve ter pelo menos 6 caracteres.')
     setLoading(true)
     try {
-      const res = await api.post('/auth/register', { nome: form.nome, email: form.email, senha: form.senha })
-      localStorage.setItem('token', res.data.token)
-      localStorage.setItem('user', JSON.stringify(res.data.user))
-      navigate('/')
-      window.location.reload()
+      await api.post('/auth/register', { nome: form.nome, email: form.email, senha: form.senha })
+      setSuccess(true)
     } catch (err) {
       setError(err.response?.data?.error || 'Erro ao criar conta.')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-900 to-primary-700 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-bold text-slate-800 mb-2">Cadastro realizado!</h2>
+          <p className="text-slate-600 text-sm mb-6">Seu cadastro foi enviado para aprovação. O administrador irá liberar seu acesso em breve.</p>
+          <Link to="/login" className="btn-primary justify-center w-full py-3">Voltar ao Login</Link>
+        </div>
+      </div>
+    )
   }
 
   return (

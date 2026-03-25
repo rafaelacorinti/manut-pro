@@ -16,23 +16,21 @@ export default function Relatorios() {
     return p.toString()
   }
 
-  const downloadFile = async (url, filename, setLoading) => {
+  const downloadFile = async (endpoint, filename, setLoading) => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
-      const res = await fetch(`/api${url}${buildParams() ? '?' + buildParams() : ''}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      if (!res.ok) throw new Error('Erro ao gerar arquivo.')
-      const blob = await res.blob()
-      const objectUrl = window.URL.createObjectURL(blob)
+      const params = buildParams()
+      const res = await api.get(`${endpoint}${params ? '?' + params : ''}`, { responseType: 'blob' })
+      const objectUrl = window.URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = objectUrl
       a.download = filename
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       window.URL.revokeObjectURL(objectUrl)
     } catch (e) {
-      alert(e.message || 'Erro ao gerar arquivo.')
+      alert('Erro ao gerar arquivo. Tente novamente.')
     } finally {
       setLoading(false)
     }
