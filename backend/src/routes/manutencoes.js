@@ -114,17 +114,19 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { data_hora, data_fim, local, tipo, tipo_personalizado, descricao, tecnico_nome, tecnico_id, status, prioridade, observacoes, custo, tempo_gasto, materiais } = req.body;
+    const { data_hora, data_fim, local, tipo, tipo_personalizado, descricao, tecnico_nome, tecnico_id, status, prioridade, observacoes, custo_mao_obra, tempo_gasto, materiais } = req.body;
     if (!data_hora || !local || !tipo || !descricao || !tecnico_nome) {
       return res.status(400).json({ error: 'Campos obrigatórios: data_hora, local, tipo, descricao, tecnico_nome.' });
     }
+    const custoMateriais = (materiais || []).reduce((acc, m) => acc + (parseFloat(m.quantidade) || 0) * (parseFloat(m.custo_unitario) || 0), 0);
+    const custoTotal = (parseFloat(custo_mao_obra) || 0) + custoMateriais;
     const numero = await gerarNumeroOS();
     const result = await run(`
-      INSERT INTO manutencoes (numero, data_hora, data_fim, local, tipo, tipo_personalizado, descricao, tecnico_id, tecnico_nome, status, prioridade, observacoes, custo, tempo_gasto)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
+      INSERT INTO manutencoes (numero, data_hora, data_fim, local, tipo, tipo_personalizado, descricao, tecnico_id, tecnico_nome, status, prioridade, observacoes, custo_mao_obra, custo, tempo_gasto)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,
       [numero, data_hora, data_fim || null, local, tipo, tipo_personalizado || null, descricao,
         tecnico_id || req.user.id, tecnico_nome, status || 'aberto',
-        prioridade || 'media', observacoes || null, custo || 0, tempo_gasto || 0]
+        prioridade || 'media', observacoes || null, parseFloat(custo_mao_obra) || 0, custoTotal, tempo_gasto || 0]
     );
     const manutencaoId = result.id;
     if (materiais?.length) {
@@ -141,19 +143,21 @@ router.post('/', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   try {
-    const { data_hora, data_fim, local, tipo, tipo_personalizado, descricao, tecnico_nome, tecnico_id, status, prioridade, observacoes, custo, tempo_gasto, materiais } = req.body;
+    const { data_hora, data_fim, local, tipo, tipo_personalizado, descricao, tecnico_nome, tecnico_id, status, prioridade, observacoes, custo_mao_obra, tempo_gasto, materiais } = req.body;
     const existing = await get('SELECT * FROM manutencoes WHERE id = $1', [req.params.id]);
     if (!existing) return res.status(404).json({ error: 'Não encontrada.' });
     if (req.user.role === 'tecnico' && String(existing.tecnico_id) !== String(req.user.id)) {
       return res.status(403).json({ error: 'Acesso negado.' });
     }
+    const custoMateriais = (materiais || []).reduce((acc, m) => acc + (parseFloat(m.quantidade) || 0) * (parseFloat(m.custo_unitario) || 0), 0);
+    const custoTotal = (parseFloat(custo_mao_obra) || 0) + custoMateriais;
     await run(`
       UPDATE manutencoes SET data_hora=$1, data_fim=$2, local=$3, tipo=$4, tipo_personalizado=$5, descricao=$6,
-        tecnico_id=$7, tecnico_nome=$8, status=$9, prioridade=$10, observacoes=$11, custo=$12, tempo_gasto=$13,
-        updated_at=NOW() WHERE id=$14`,
+        tecnico_id=$7, tecnico_nome=$8, status=$9, prioridade=$10, observacoes=$11, custo_mao_obra=$12, custo=$13, tempo_gasto=$14,
+        updated_at=NOW() WHERE id=$15`,
       [data_hora, data_fim || null, local, tipo, tipo_personalizado || null, descricao,
         tecnico_id || existing.tecnico_id, tecnico_nome, status, prioridade,
-        observacoes || null, custo || 0, tempo_gasto || 0, req.params.id]
+        observacoes || null, parseFloat(custo_mao_obra) || 0, custoTotal, tempo_gasto || 0, req.params.id]
     );
     if (materiais) {
       await run('DELETE FROM materiais WHERE manutencao_id = $1', [req.params.id]);

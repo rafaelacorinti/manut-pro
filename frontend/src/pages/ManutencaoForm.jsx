@@ -37,7 +37,16 @@ export default function ManutencaoForm() {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'materiais' })
   const tipoSelecionado = watch('tipo')
+  const watchMateriais = watch('materiais')
+  const watchCustoMaoDeObra = watch('custo_mao_obra')
   const manutencaoId = useRef(null)
+
+  const custoMateriais = (watchMateriais || []).reduce((acc, m) => {
+    const qtd = parseFloat(m?.quantidade) || 0
+    const unit = parseFloat(m?.custo_unitario) || 0
+    return acc + qtd * unit
+  }, 0)
+  const custoTotal = (parseFloat(watchCustoMaoDeObra) || 0) + custoMateriais
 
   useEffect(() => {
     api.get('/manutencoes/locais').then(r => setLocais(r.data))
@@ -59,7 +68,7 @@ export default function ManutencaoForm() {
         setValue('status', m.status)
         setValue('prioridade', m.prioridade)
         setValue('observacoes', m.observacoes || '')
-        setValue('custo', m.custo || 0)
+        setValue('custo_mao_obra', m.custo_mao_obra || 0)
         setValue('tempo_gasto', m.tempo_gasto || 0)
         setValue('data_fim', m.data_fim?.slice(0, 16) || '')
         setValue('materiais', m.materiais || [])
@@ -207,12 +216,26 @@ export default function ManutencaoForm() {
               )}
             </div>
             <div>
-              <label className="label">Custo (R$)</label>
-              <input type="number" step="0.01" min="0" className="input" {...register('custo')} />
+              <label className="label">Custo Mão de Obra (R$)</label>
+              <input type="number" step="0.01" min="0" className="input" {...register('custo_mao_obra')} />
             </div>
             <div>
               <label className="label">Tempo Gasto (horas)</label>
               <input type="number" step="0.5" min="0" className="input" {...register('tempo_gasto')} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 p-4 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="text-center">
+              <p className="text-xs text-slate-500 mb-1">Custo Mão de Obra</p>
+              <p className="font-bold text-slate-700">R$ {(parseFloat(watchCustoMaoDeObra) || 0).toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-500 mb-1">Custo Materiais</p>
+              <p className="font-bold text-slate-700">R$ {custoMateriais.toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-slate-500 mb-1">Custo Total</p>
+              <p className="font-black text-primary-700 text-lg">R$ {custoTotal.toFixed(2)}</p>
             </div>
           </div>
         </div>

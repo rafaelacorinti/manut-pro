@@ -83,6 +83,7 @@ async function initDB() {
       prioridade TEXT DEFAULT 'media',
       observacoes TEXT,
       custo NUMERIC DEFAULT 0,
+      custo_mao_obra NUMERIC DEFAULT 0,
       tempo_gasto NUMERIC DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -127,6 +128,8 @@ async function initDB() {
   `);
 
   const admin = await get("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+  // Migração: adicionar colunas novas se não existirem
+  await query(`ALTER TABLE manutencoes ADD COLUMN IF NOT EXISTS custo_mao_obra NUMERIC DEFAULT 0`).catch(() => {});
   if (!admin) {
     const hash = bcrypt.hashSync('admin123', 10);
     await run('INSERT INTO users (nome, email, senha, role) VALUES ($1,$2,$3,$4)', ['Administrador', 'admin@manutpro.com', hash, 'admin']);
