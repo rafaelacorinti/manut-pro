@@ -47,140 +47,128 @@ router.get('/pdf/:id', async (req, res) => {
 
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const chunks = [];
+
     doc.on('data', chunk => chunks.push(chunk));
-
-    await new Promise((resolve, reject) => {
-      doc.on('end', resolve);
-      doc.on('error', reject);
-
-      const azul = '#1e40af';
-      const cinzaClaro = '#f1f5f9';
-      const pageWidth = doc.page.width - 100;
-
-      doc.rect(50, 40, pageWidth, 80).fill(azul);
-      if (empresa?.logo_base64) {
-        try {
-          const logoBuffer = Buffer.from(empresa.logo_base64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-          doc.image(logoBuffer, 58, 48, { height: 64, fit: [80, 64] });
-        } catch(e) { console.error('Erro logo PDF:', e.message); }
-      }
-      doc.fillColor('white').fontSize(20).font('Helvetica-Bold').text(empresa?.nome || 'Minha Empresa', 130, 55, { align: 'center' });
-      doc.fontSize(11).font('Helvetica').text('RELATÓRIO DE MANUTENÇÃO PREDIAL', 130, 80, { align: 'center' });
-
-      doc.y = 135;
-      doc.rect(50, 130, pageWidth, 22).fill(cinzaClaro);
-      doc.fillColor(azul).fontSize(11).font('Helvetica-Bold').text('IDENTIFICAÇÃO DA ORDEM DE SERVIÇO', 55, 135);
-
-      const col1 = 55, col2 = 310;
-      let y = 162;
-      const campo = (label, valor, x, yPos, largura) => {
-        doc.fontSize(8).fillColor('#64748b').font('Helvetica-Bold').text(label, x, yPos, { width: largura });
-        doc.fontSize(10).fillColor('#1e293b').font('Helvetica').text(String(valor || '-'), x, yPos + 12, { width: largura });
-      };
-
-      campo('Nº da OS', m.numero, col1, y, 200);
-      campo('Data / Hora Início', fmtData(m.data_hora), col2, y, 200); y += 38;
-      campo('Data / Hora Término', m.data_fim ? fmtData(m.data_fim) : 'Não informado', col1, y, 200);
-      campo('Local', m.local, col2, y, 200); y += 38;
-      campo('Tipo de Manutenção', labelTipo(m.tipo, m.tipo_personalizado), col1, y, 200);
-      campo('Técnico Responsável', m.tecnico_nome, col2, y, 200); y += 38;
-      campo('Prioridade', labelPrioridade(m.prioridade), col1, y, 200);
-      campo('Status', labelStatus(m.status), col2, y, 200); y += 38;
-      campo('Custo Mão de Obra', `R$ ${parseFloat(m.custo_mao_obra || 0).toFixed(2)}`, col1, y, 200);
-      campo('Tempo Gasto', m.tempo_gasto ? `${m.tempo_gasto}h` : '-', col2, y, 200); y += 38;
-
-      doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 12;
-      doc.rect(50, y, pageWidth, 22).fill(cinzaClaro);
-      doc.fillColor(azul).fontSize(11).font('Helvetica-Bold').text('DESCRIÇÃO DO SERVIÇO', 55, y + 5); y += 30;
-      doc.fillColor('#1e293b').fontSize(10).font('Helvetica').text(m.descricao || '-', 55, y, { width: pageWidth - 10 });
-      y = doc.y + 12;
-
-      if (m.observacoes) {
-        doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 12;
-        doc.rect(50, y, pageWidth, 22).fill(cinzaClaro);
-        doc.fillColor(azul).fontSize(11).font('Helvetica-Bold').text('OBSERVAÇÕES', 55, y + 5); y += 30;
-        doc.fillColor('#1e293b').fontSize(10).font('Helvetica').text(m.observacoes, 55, y, { width: pageWidth - 10 });
-        y = doc.y + 12;
-      }
-
-      if (materiais?.length) {
-        doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 12;
-        doc.rect(50, y, pageWidth, 22).fill(cinzaClaro);
-        doc.fillColor(azul).fontSize(11).font('Helvetica-Bold').text('MATERIAIS UTILIZADOS', 55, y + 5); y += 30;
-        doc.rect(50, y, pageWidth, 18).fill('#e2e8f0');
-        doc.fillColor('#1e293b').fontSize(9).font('Helvetica-Bold');
-        doc.text('Material', 55, y + 4, { width: 180 });
-        doc.text('Qtd', 240, y + 4, { width: 60 });
-        doc.text('Unid.', 305, y + 4, { width: 60 });
-        doc.text('Custo Unit.', 368, y + 4, { width: 80 });
-        doc.text('Subtotal', 450, y + 4, { width: 80 }); y += 18;
-        let totalMat = 0;
-        materiais.forEach((mat, i) => {
-          if (i % 2 === 1) doc.rect(50, y, pageWidth, 18).fill('#f8fafc');
-          doc.fillColor('#1e293b').fontSize(9).font('Helvetica');
-          doc.text(mat.nome, 55, y + 4, { width: 180 });
-          doc.text(String(mat.quantidade), 240, y + 4, { width: 60 });
-          doc.text(mat.unidade || 'un', 305, y + 4, { width: 60 });
-          doc.text(`R$ ${parseFloat(mat.custo_unitario || 0).toFixed(2)}`, 368, y + 4, { width: 80 });
-          const sub = (mat.quantidade || 1) * (mat.custo_unitario || 0);
-          totalMat += sub;
-          doc.text(`R$ ${sub.toFixed(2)}`, 450, y + 4, { width: 80 }); y += 18;
-        });
-        doc.rect(50, y, pageWidth, 20).fill('#dbeafe');
-        doc.fillColor(azul).fontSize(10).font('Helvetica-Bold').text(`Total em Materiais: R$ ${totalMat.toFixed(2)}`, 55, y + 5, { align: 'right', width: pageWidth - 10 }); y += 28;
-        const custoTotal = parseFloat(m.custo || 0);
-        doc.rect(50, y, pageWidth, 20).fill(azul);
-        doc.fillColor('white').fontSize(10).font('Helvetica-Bold').text(`CUSTO TOTAL: R$ ${custoTotal.toFixed(2)}`, 55, y + 5, { align: 'right', width: pageWidth - 10 }); y += 28;
-      }
-
-      const imagens = (anexos || []).filter(a => a.tipo === 'imagem' && fs.existsSync(a.caminho));
-      if (imagens.length) {
-        if (y > doc.page.height - 200) { doc.addPage(); y = 50; }
-        doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 12;
-        doc.rect(50, y, pageWidth, 22).fill(cinzaClaro);
-        doc.fillColor(azul).fontSize(11).font('Helvetica-Bold').text('IMAGENS ANEXADAS', 55, y + 5); y += 30;
-        for (let i = 0; i < imagens.length; i++) {
-          if (y > doc.page.height - 250) { doc.addPage(); y = 50; }
-          try {
-            doc.image(imagens[i].caminho, 55, y, { width: 220, height: 180 });
-            doc.fontSize(8).fillColor('#64748b').text(imagens[i].nome, 55, y + 185, { width: 220 });
-            if (i % 2 === 0 && i + 1 < imagens.length && fs.existsSync(imagens[i + 1].caminho)) {
-              doc.image(imagens[i + 1].caminho, 290, y, { width: 220, height: 180 });
-              doc.fontSize(8).fillColor('#64748b').text(imagens[i + 1].nome, 290, y + 185, { width: 220 });
-              i++;
-            }
-            y += 210;
-          } catch (e) { doc.fontSize(9).fillColor('#ef4444').text(`[Imagem indisponível]`, 55, y); y += 20; }
-        }
-      }
-
-      if (y > doc.page.height - 180) { doc.addPage(); y = 50; }
-      y += 10;
-      doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 15;
-      doc.rect(50, y, pageWidth, 22).fill(cinzaClaro);
-      doc.fillColor(azul).fontSize(11).font('Helvetica-Bold').text('ASSINATURA DO RESPONSÁVEL', 55, y + 5); y += 35;
-
-      if (assinatura?.dados) {
-        try {
-          const buf = Buffer.from(assinatura.dados.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-          doc.image(buf, 55, y, { width: 200, height: 70 });
-          y += 78;
-        } catch (e) { doc.rect(55, y, 220, 70).strokeColor('#94a3b8').lineWidth(1).stroke(); y += 78; }
-      } else {
-        doc.rect(55, y, 220, 70).strokeColor('#94a3b8').lineWidth(1).stroke(); y += 78;
-      }
-      doc.moveTo(55, y).lineTo(275, y).strokeColor('#334155').lineWidth(1).stroke();
-      doc.fillColor('#334155').fontSize(9).font('Helvetica').text(assinatura?.responsavel || m.tecnico_nome, 55, y + 4, { width: 220, align: 'center' }); y += 25;
-      doc.fillColor('#64748b').fontSize(9).text(`Data de Emissão: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 50, y, { width: pageWidth, align: 'right' });
-      doc.fillColor('#94a3b8').fontSize(8).text(`Gerado pelo Manut-Pro`, 50, doc.page.height - 40, { width: pageWidth, align: 'center' });
-      doc.end();
+    doc.on('error', err => {
+      console.error('PDFKit error:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Erro ao gerar PDF.' });
+    });
+    doc.on('end', () => {
+      const buffer = Buffer.concat(chunks);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="OS-${m.numero}.pdf"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.end(buffer);
     });
 
-    const buffer = Buffer.concat(chunks);
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="OS-${m.numero}.pdf"`);
-    res.setHeader('Content-Length', buffer.length);
-    res.end(buffer);
+    const azul = '#1e40af';
+    const cinzaClaro = '#f1f5f9';
+    const pageWidth = doc.page.width - 100;
+
+    // Cabeçalho
+    doc.rect(50, 40, pageWidth, 80).fill(azul);
+    if (empresa?.logo_base64) {
+      try {
+        const logoBuffer = Buffer.from(empresa.logo_base64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        doc.image(logoBuffer, 58, 48, { height: 64, fit: [80, 64] });
+      } catch(e) { console.error('Erro logo PDF:', e.message); }
+    }
+    doc.fillColor('white').fontSize(20).font('Helvetica-Bold').text(empresa?.nome || 'Minha Empresa', 150, 52, { width: pageWidth - 110, align: 'center' });
+    doc.fontSize(10).font('Helvetica').text('RELATÓRIO DE MANUTENÇÃO PREDIAL', 150, 76, { width: pageWidth - 110, align: 'center' });
+
+    // Identificação
+    let y = 140;
+    doc.rect(50, y, pageWidth, 20).fill(cinzaClaro);
+    doc.fillColor(azul).fontSize(10).font('Helvetica-Bold').text('IDENTIFICAÇÃO DA ORDEM DE SERVIÇO', 55, y + 5); y += 28;
+
+    const col1 = 55, col2 = 310;
+    const campo = (label, valor, x, yPos) => {
+      doc.fontSize(8).fillColor('#64748b').font('Helvetica-Bold').text(label, x, yPos);
+      doc.fontSize(10).fillColor('#1e293b').font('Helvetica').text(String(valor || '-'), x, yPos + 11, { width: 240 });
+    };
+
+    campo('Nº da OS', m.numero, col1, y);
+    campo('Data / Hora Início', fmtData(m.data_hora), col2, y); y += 36;
+    campo('Data / Hora Término', m.data_fim ? fmtData(m.data_fim) : 'Não informado', col1, y);
+    campo('Local', m.local, col2, y); y += 36;
+    campo('Tipo de Manutenção', labelTipo(m.tipo, m.tipo_personalizado), col1, y);
+    campo('Técnico Responsável', m.tecnico_nome, col2, y); y += 36;
+    campo('Prioridade', labelPrioridade(m.prioridade), col1, y);
+    campo('Status', labelStatus(m.status), col2, y); y += 36;
+    campo('Custo Mão de Obra', `R$ ${parseFloat(m.custo_mao_obra || 0).toFixed(2)}`, col1, y);
+    campo('Custo Total', `R$ ${parseFloat(m.custo || 0).toFixed(2)}`, col2, y); y += 36;
+    campo('Tempo Gasto', m.tempo_gasto ? `${m.tempo_gasto}h` : '-', col1, y); y += 36;
+
+    // Descrição
+    doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 10;
+    doc.rect(50, y, pageWidth, 20).fill(cinzaClaro);
+    doc.fillColor(azul).fontSize(10).font('Helvetica-Bold').text('DESCRIÇÃO DO SERVIÇO', 55, y + 5); y += 28;
+    doc.fillColor('#1e293b').fontSize(10).font('Helvetica').text(m.descricao || '-', 55, y, { width: pageWidth - 10 });
+    y = doc.y + 14;
+
+    // Observações
+    if (m.observacoes) {
+      doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 10;
+      doc.rect(50, y, pageWidth, 20).fill(cinzaClaro);
+      doc.fillColor(azul).fontSize(10).font('Helvetica-Bold').text('OBSERVAÇÕES', 55, y + 5); y += 28;
+      doc.fillColor('#1e293b').fontSize(10).font('Helvetica').text(m.observacoes, 55, y, { width: pageWidth - 10 });
+      y = doc.y + 14;
+    }
+
+    // Materiais
+    if (materiais?.length) {
+      doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 10;
+      doc.rect(50, y, pageWidth, 20).fill(cinzaClaro);
+      doc.fillColor(azul).fontSize(10).font('Helvetica-Bold').text('MATERIAIS UTILIZADOS', 55, y + 5); y += 28;
+
+      doc.rect(50, y, pageWidth, 16).fill('#334155');
+      doc.fillColor('white').fontSize(8).font('Helvetica-Bold');
+      doc.text('Material', 55, y + 4, { width: 170 });
+      doc.text('Qtd', 230, y + 4, { width: 50 });
+      doc.text('Unid.', 285, y + 4, { width: 50 });
+      doc.text('Custo Unit.', 340, y + 4, { width: 80 });
+      doc.text('Subtotal', 425, y + 4, { width: 80 }); y += 16;
+
+      let totalMat = 0;
+      materiais.forEach((mat, i) => {
+        if (y > doc.page.height - 80) { doc.addPage(); y = 50; }
+        if (i % 2 === 1) doc.rect(50, y, pageWidth, 16).fill('#f1f5f9');
+        doc.fillColor('#1e293b').fontSize(9).font('Helvetica');
+        doc.text(mat.nome || '-', 55, y + 3, { width: 170 });
+        doc.text(String(mat.quantidade || 0), 230, y + 3, { width: 50 });
+        doc.text(mat.unidade || 'un', 285, y + 3, { width: 50 });
+        doc.text(`R$ ${parseFloat(mat.custo_unitario || 0).toFixed(2)}`, 340, y + 3, { width: 80 });
+        const sub = (parseFloat(mat.quantidade) || 1) * (parseFloat(mat.custo_unitario) || 0);
+        totalMat += sub;
+        doc.text(`R$ ${sub.toFixed(2)}`, 425, y + 3, { width: 80 }); y += 16;
+      });
+
+      doc.rect(50, y, pageWidth, 18).fill('#dbeafe');
+      doc.fillColor(azul).fontSize(9).font('Helvetica-Bold').text(`Custo Materiais: R$ ${totalMat.toFixed(2)}   |   Custo Mão de Obra: R$ ${parseFloat(m.custo_mao_obra || 0).toFixed(2)}   |   TOTAL: R$ ${parseFloat(m.custo || 0).toFixed(2)}`, 55, y + 4, { width: pageWidth - 10, align: 'right' }); y += 26;
+    }
+
+    // Assinatura
+    if (y > doc.page.height - 160) { doc.addPage(); y = 50; }
+    y += 10;
+    doc.moveTo(50, y).lineTo(50 + pageWidth, y).strokeColor('#e2e8f0').lineWidth(1).stroke(); y += 10;
+    doc.rect(50, y, pageWidth, 20).fill(cinzaClaro);
+    doc.fillColor(azul).fontSize(10).font('Helvetica-Bold').text('ASSINATURA DO RESPONSÁVEL', 55, y + 5); y += 30;
+
+    if (assinatura?.dados) {
+      try {
+        const buf = Buffer.from(assinatura.dados.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        doc.image(buf, 55, y, { width: 200, height: 70 });
+      } catch (e) { doc.rect(55, y, 200, 70).strokeColor('#94a3b8').lineWidth(1).stroke(); }
+    } else {
+      doc.rect(55, y, 200, 70).strokeColor('#94a3b8').lineWidth(1).stroke();
+    }
+    y += 76;
+    doc.moveTo(55, y).lineTo(255, y).strokeColor('#334155').lineWidth(1).stroke();
+    doc.fillColor('#334155').fontSize(9).font('Helvetica').text(assinatura?.responsavel || m.tecnico_nome, 55, y + 4, { width: 200, align: 'center' }); y += 22;
+    doc.fillColor('#64748b').fontSize(8).text(`Data de Emissão: ${fmtData(new Date())}`, 55, y);
+
+    doc.end();
+
   } catch (e) {
     console.error('Erro PDF:', e);
     if (!res.headersSent) res.status(500).json({ error: 'Erro ao gerar PDF: ' + e.message });
